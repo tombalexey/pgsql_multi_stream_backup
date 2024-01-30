@@ -26,6 +26,7 @@
 # -l каталог хранения логов permLogDir -l, , по умолчанию не задан
 # -z коэфицент сжатия БД -z, значение по умолчанию 1
 # -s строка подключения -s, по умолчанию не задана
+# -u отключение сортировки БД по размеру от большей к меньшей, по умолчанию сортировка включена
 
 
 #Инициализация переменных со значениями по умолчанию
@@ -37,6 +38,8 @@ maxStreams=0
 permLogDir=''
 #Задаем количество хранимых дампов БД, по умолчанию 0 - не удалять
 dumpsLimit=0
+#Задаем переменную с параметрами сортировки БД
+DBSort='ORDER BY pg_database_size(datname) DESC'
 
 ##Функция отправки сообщений в Telegram
 #Проверяет наличие переменных ChatID и telToken, если заданы, отправляем сообщение в Телеграм
@@ -53,6 +56,8 @@ do
   case "$1" in
 #Режим - если указано, используется для ручной архивации (по требованию плользователя), по умолчанию используется режим для автоматической архивации
   -h) dumpMode='handle';;
+#Отключение сортировки БД по размеру
+  -u) DBSort='';;
 #Количество потоков выполения, значение по умолчанию 0 (вывод справки)
   -n) maxStreams="$2"
     shift ;;
@@ -179,7 +184,7 @@ myPID=$$
 echo "Подготовка списка БД $(date +%Y%m%d)_$(date +%H%M)"
 echo "Это может занять несколько минут"
 #Получаем список БД, без шаблонов или заблокированных БД, с пользовательскими условиями отбора и отсортиванный по размеру БД, от больших баз к маленьким, при большом количестве БД это может занять несколько минут
-DBList="$(psql --dbname=${connString}postgres -q -c '\timing off' -c "SELECT datname FROM pg_database WHERE datallowconn = 'true' AND datistemplate = false AND datname ~* '${DBNamePtrn}' ${DBNameExcludePtrn} ORDER BY pg_database_size(datname) DESC;" -t)"
+DBList="$(psql --dbname=${connString}postgres -q -c '\timing off' -c "SELECT datname FROM pg_database WHERE datallowconn = 'true' AND datistemplate = false AND datname ~* '${DBNamePtrn}' ${DBNameExcludePtrn} ${DBSort};" -t)"
 
 #Проверяем подключение к СУБД
 if [ $? -ne 0 ]
