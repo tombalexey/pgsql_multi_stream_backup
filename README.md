@@ -38,4 +38,4 @@
   Подробнее о connection string можно прочесть тут, https://postgrespro.ru/docs/postgrespro/15/libpq-connect
   
   Скрипт необходимо запускать от имени пользователя службы PostgreSQL (sudo -u postgres имя_скрипта параметры) или указывать строку подключения к СУБД\
-  Роль СУБД должна обладать иметь атрибут SUPERVISOR.
+  Роль СУБД должна обладать атрибутом SUPERVISOR.
