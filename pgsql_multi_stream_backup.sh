@@ -43,11 +43,12 @@ DBSort='ORDER BY pg_database_size(datname) DESC'
 
 ##Функция отправки сообщений в Telegram
 #Проверяет наличие переменных ChatID и telToken, если заданы, отправляем сообщение в Телеграм
-function sendToTelegram {
+function sendMsgToTelegram {
 if [[ -n ${chatID} && -n ${telToken} ]]
-  then
-    /usr/bin/curl -s --header 'Content-Type: application/json' --request 'POST' --data "{\"chat_id\":\"${chatID}\",\"text\":\"${subj}\n${errorString}\"}" "https://api.telegram.org/bot${telToken}/sendMessage" > /dev/null 2>&1
-  fi
+then
+  URL="https://api.telegram.org/bot${telToken}/sendMessage"
+  /usr/bin/curl -s -X POST $URL -d chat_id=${chatID} -d text="${subj}\n${errorString}" > /dev/null 2>&1
+fi
 }
 
 #Разбор аргументов командной строки
@@ -73,6 +74,8 @@ do
 #Токен телеграм-бота, если отсутствует, сообщения отправляться не будут
   -t) telToken="$2"
     shift ;;
+#Отправлять архим с отчетами о резервном копировании в Телеграм
+  -o) repUpl="true";;
 #ID чата в телеграм, если отсутствует, сообщения отправляться не будут
   -c) chatID="$2"
     shift ;;
@@ -99,7 +102,7 @@ then
   echo "Параметр число потоков, должен быть цифровым"
   echo "Для вывода справки запустите скрипт без параметров"
   subj="\uD83C\uDD98 !!! Ошибка выполнения резервного копирования на $(hostname), параметр число потоков, должен быть цифровым"
-  sendToTelegram
+  sendMsgToTelegram
   exit 1
 fi
 
@@ -111,14 +114,14 @@ then
     echo -e "Отсутсвуют права на запись в каталог \"${mainDumpDir}\""
     echo "Для справки запустите скрипт без параметров"
     subj="\uD83C\uDD98 !!! Ошибка выполнения резервного копирования на $(hostname), отсутсвуют права на запись в каталог ${mainDumpDir}"
-    sendToTelegram
+    sendMsgToTelegram
     exit 1
   fi
 else
   echo -e "Каталог \"${mainDumpDir}\" не существует"
   echo "Для справки запустите скрипт без параметров"
   subj="\uD83C\uDD98 !!! Ошибка выполнения резервного копирования на $(hostname), каталог ${mainDumpDir} не существует"
-  sendToTelegram
+  sendMsgToTelegram
   exit 1
 fi
 
@@ -128,7 +131,7 @@ then
   echo "Аргумент \"Коэфицент сжатия\" должен быть цифровым от 0 до 9"
   echo "Для справки запустите скрипт без параметров"
   subj="\uD83C\uDD98 !!! Ошибка выполнения резервного копирования на $(hostname), аргумент Коэфицент сжатия должен быть цифровым от 0 до 9"
-  sendToTelegram
+  sendMsgToTelegram
   exit 1
 fi
 
@@ -138,7 +141,7 @@ then
   echo "Значение аргумента \"Коэфицент сжатия\" должно лежать в диапазоне от 0 до 9"
   echo "Для справки запустите скрипт без параметров"
   subj="\uD83C\uDD98 !!! Ошибка выполнения резервного копирования на $(hostname), значение аргумента Коэфицент сжатия должно лежать в диапазоне от 0 до 9"
-  sendToTelegram
+  sendMsgToTelegram
   exit 1
 fi
 
@@ -148,7 +151,7 @@ then
   echo "Аргумент \"Количество дампов\" должен быть числовым"
   echo "Для справки запустите скрипт без параметров"
   subj="\uD83C\uDD98 !!! Ошибка выполнения резервного копирования на $(hostname), аргумент Количество дампов должен быть числовым"
-  sendToTelegram
+  sendMsgToTelegram
   exit 1
 fi
 
@@ -192,7 +195,7 @@ if [ $? -ne 0 ]
 then
   echo "Ошибка подключения к СУБД"
   subj="\uD83C\uDD98 $(hostname) Ошибка подключения к СУБД при выполнении резервного копирования"
-  sendToTelegram
+  sendMsgToTelegram
   exit 1
 fi
 
@@ -328,11 +331,13 @@ done
 
 
 #Формирование файлов отчетов
-echo -e ${errorStateString} > /tmp/${ST}_dumps.state
+#Создание файла состояний выполнения pg_dump
+echo -e ${errorStateString} > /tmp/$(hostname)_${ST}_dumps.state
 #Удаление файлов состояний из временного хранилища
 rm -rf ${dumpStateDir}
 #Создание архива с файлами логов
-tar -Czf /tmp/${ST}_dump_logs.tar.gz ${logDir}/*.log
+cd ${logDir}
+tar -czf /tmp/$(hostname)_${ST}_dump_logs.tar.gz *.log
 #Удаление логов архивации из временного хранилища
 rm -rf ${logDir}
 
@@ -345,26 +350,36 @@ else
   icon='\u2705'
 fi
 
-# Отправка отчета о резервном копировании в телеграм
+#Отправка сообщения о завершении резервного копировании в Телеграм
 subj="${icon}Резервное копирование ${ST} на СУБД $(hostname) завершено, обработано баз ${dumpDBCounter}, ошибок ${dumpErrorCount}\n"
-sendToTelegram
+sendMsgToTelegram
 
-#Перенос файлов отчетов на постоянное место хранениния
-#Если целевой каталог существует и имеет права на запись для пользователя запустившего скрипт, переносим файл состояний выполнения дампов БД
-  if [[ -w ${permLogDir} ]]
-  then
-    mv /tmp/${ST}_dumps.state ${permLogDir}
-  else
-    rm -f /tmp/${ST}_dumps.state
-  fi
+#Отправка архива с отчетами в Телеграм
+if [[ -n ${chatID} && -n ${telToken} && -n ${repUpl}]]
+then
+  URL="https://api.telegram.org/bot${telToken}/sendDocument"
+  /usr/bin/curl -s -X POST $URL -F chat_id=${chatID} -F "document=@/tmp/$(hostname)_${ST}_dump_logs.tar.gz"  -F "caption=Отчет о резервном копировании PostgreSQL ${ST} на СУБД $(hostname) " > /dev/null 2>&1
+fi
+
+#Перенос файлов отчетов на постоянное место хранения
+#Если, целевой каталог существует и имеет права на запись для пользователя запустившего скрипт
+#Тогда, переносим файл состояний выполнения дампов БД на постоянное место хранения
+if [[ -w ${permLogDir} ]]
+then
+  mv /tmp/$(hostname)_${ST}_dumps.state ${permLogDir}
+#Иначе, удаляем файл состояний
+else
+  rm -f /tmp/$(hostname)_${ST}_dumps.state
+fi
 #Перенос архива с файлами лога на постоянное место хранения
-#Если целевой каталог существует и имеет права на запись для пользователя запустившего скрипт, переносим архив с логами на постоянное место хранения
-  if [[ -w ${permLogDir} && -d ${logDir} ]]
-  then
-    mv /tmp/${ST}_dump_logs.tar.gz ${permLogDir}
-#Если нет, удаляем логи
-  else
-    rm -f /tmp/${ST}_dump_logs.tar.gz
-  fi
-#Сообщение в консоль
+#Если, целевой каталог существует и имеет права на запись для пользователя запустившего скрипт
+#Тогда, переносим архив с логами на постоянное место хранения
+if [[ -w ${permLogDir} && -d ${logDir} ]]
+then
+  mv /tmp/$(hostname)_${ST}_dump_logs.tar.gz ${permLogDir}
+#Иначе, удаляем архив
+else
+  rm -f /tmp/$(hostname)_${ST}_dump_logs.tar.gz
+fi
+#Сообщение в консоль о завершении архивации
 echo "Завершение резервного копирования БД $(date +%Y%m%d)_$(date +%H%M)"
