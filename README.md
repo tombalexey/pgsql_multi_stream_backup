@@ -49,7 +49,6 @@
 
   Вариант файла ~/.muttrc настройки для Яндекс
   ```
-  --------------------------------
   set realname = "Отображаемое имя"
   set from = "user.name@domain.name"
   set use_from = yes
