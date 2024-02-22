@@ -46,8 +46,9 @@
   
   Для отправки сообщений по e-mail необходим установленный почтовый клиент mutt, доступный в переменной PATH
   Также необходимо создать и заполнить файл настроек ~/.muttrc (файл должен находиться в профиле пользователя от которого работает скрипт)
-  
+
   Вариант файла ~/.muttrc настройки для Яндекс
+  ```
   --------------------------------
   set realname = "Отображаемое имя"
   set from = "user.name@domain.name"
@@ -56,6 +57,6 @@
   set ssl_force_tls = yes
   set smtp_url = "smtps://user.name@domain.name@smtp.yandex.ru:465"
   set smtp_pass = "пароль_от_почтового_аккаунта"
-  alias your_alias user1@domain, user2@domain, user3@domain
-  --------------------------------
+  alias your_alias user1@domain, user2@domain, user3@domain  
+  ```
   В соответсвии с текущей политикой безопасности Яндекса необходимо использовать "пароли приложений"
