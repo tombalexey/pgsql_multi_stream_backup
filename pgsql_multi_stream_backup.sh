@@ -364,45 +364,41 @@ then
   /usr/bin/curl -s -X POST $URL -F chat_id=${chatID} -F "document=@/tmp/$(hostname)_${ST}_dump_logs.tar.gz"  -F "caption=Отчет о резервном копировании PostgreSQL ${ST} на СУБД $(hostname) " > /dev/null 2>&1
 fi
 
+#Модуль отправки почты
+if [[ -n ${emailRcpt} || -n ${emailFailRcpt} ]]
 #Проверка доступности mutt
-mutt -help > /dev/null 2>&1
-if [ $? -ne 0 ]
+  mutt -help > /dev/null 2>&1
+  if [[ $? -eq 0 ]]
   then
-  echo "Ошибка, mutt недоступен"
-  subj="\uD83C\uDD98 $(hostname) Не обнаружен почтовый клиент mutt"
-  sendMsgToTelegram    
-fi
-
 #Отправка письма с отчетом о резервном копировании
-if [[ -n ${emailRcpt} ]]
-then
+    if [[ -n ${emailRcpt} ]]
+    then
 #Отправка e-mail о работе 
-  echo -e "Резервное копирование ${ST} на СУБД $(hostname) завершено, обработано баз ${dumpDBCounter}, ошибок ${dumpErrorCount} \n${errorString}" \
-  |mutt -s "Отчет в резервном копировании СУБД $(hostname) от ${ST}" \
-  -a /tmp/$(hostname)_${ST}_dump_logs.tar.gz \
-  -- ${emailRcpt}  
+      echo -e "Резервное копирование ${ST} на СУБД $(hostname) завершено, обработано баз ${dumpDBCounter}, ошибок ${dumpErrorCount} \n${errorString}" |mutt -s "Отчет в резервном копировании СУБД $(hostname) от ${ST}" -a /tmp/$(hostname)_${ST}_dump_logs.tar.gz -- ${emailRcpt}  
 #Проверка отправки почты
-  if [ $? -ne 0 ]
-  then
-    echo "Ошибка при отправке отчета о работе"
-    subj="\uD83C\uDD98 $(hostname) Возникли ошибки при отправке e-mail"
-    sendMsgToTelegram    
-  fi
-fi
-
+      if [[ $? -ne 0 ]]
+      then
+        echo "Ошибка при отправке отчета о работе"
+        subj="\uD83C\uDD98 $(hostname) Возникли ошибки при отправке e-mail"
+        sendMsgToTelegram    
+      fi
+	fi
 #Отправка письма с отчетом о резервном копировании при возникновении ошибок
-if [[ -n ${emailFailRcpt} && ${dumpErrorCount} -gt 0 ]]
-then
+    if [[ -n ${emailFailRcpt} && ${dumpErrorCount} -gt 0 ]]
+    then
 #Отправка e-mail о работе 
-  echo -e "Во время резервного копирования ${ST} на СУБД $(hostname) возникли ошибки, обработано баз ${dumpDBCounter}, ошибок ${dumpErrorCount} \n${errorString}" \
-  |mutt -s "Ошибки при резервном копировании СУБД $(hostname) от ${ST}" \
-  -a /tmp/$(hostname)_${ST}_dump_logs.tar.gz \
-  -- ${emailFailRcpt}  
+      echo -e "Во время резервного копирования ${ST} на СУБД $(hostname) возникли ошибки, обработано баз ${dumpDBCounter}, ошибок ${dumpErrorCount} \n${errorString}" |mutt -s "Ошибки при резервном копировании СУБД $(hostname) от ${ST}" -a /tmp/$(hostname)_${ST}_dump_logs.tar.gz -- ${emailFailRcpt}
 #Проверка отправки почты
-  if [ $? -ne 0 ]
-  then
-    echo "Ошибка при отправке отчета о работе"
-    subj="\uD83C\uDD98 $(hostname) Возникли ошибки при отправке e-mail"
+      if [[ $? -ne 0 ]]
+      then
+        echo "Ошибка при отправке отчета о работе"
+        subj="\uD83C\uDD98 $(hostname) Возникли ошибки при отправке e-mail"
+        sendMsgToTelegram    
+      fi
+    fi
+  else
+    echo "Ошибка, mutt недоступен"
+    subj="\uD83C\uDD98 $(hostname) Не обнаружен почтовый клиент mutt"
     sendMsgToTelegram    
   fi
 fi
