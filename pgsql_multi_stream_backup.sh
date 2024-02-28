@@ -366,6 +366,7 @@ fi
 
 #Модуль отправки почты
 if [[ -n ${emailRcpt} || -n ${emailFailRcpt} ]]
+then
 #Проверка доступности mutt
   mutt -help > /dev/null 2>&1
   if [[ $? -eq 0 ]]
